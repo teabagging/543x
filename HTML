@@ -1,0 +1,862 @@
+<html><head>
+<title>Crypto Periodic Table Index</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000;
+    font-family: Arial, sans-serif;
+    user-select: none;
+  }
+  canvas {
+    display: block;
+  }
+  #controls {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    color: white;
+    background-color: rgba(0,0,0,0.5);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    transform: scale(0.8);
+    transform-origin: bottom left;
+    transition: transform 0.3s ease;
+  }
+  #controls.hidden {
+    transform: scale(0.8) translateY(100%);
+  }
+  .slider-container {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+  }
+  .slider-container label {
+    flex: 0 0 130px;
+    font-size: 130%;
+  }
+  .slider-container input[type="range"] {
+    flex: 1;
+    margin: 0 10px;
+  }
+  .slider-container span {
+    flex: 0 0 40px;
+    text-align: right;
+  }
+  .slider-button {
+    width: 20px;
+    height: 20px;
+    background-color: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+  }
+  #fullscreenBtn, #infoBtn, #toggleControlsBtn {
+    position: absolute;
+    padding: 8px;
+    background-color: rgba(0,0,0,0.5);
+    color: rgba(255,255,255,0.5);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+  }
+  #fullscreenBtn {
+    top: 10px;
+    right: 10px;
+  }
+  #infoBtn {
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+  }
+  #toggleControlsBtn {
+    bottom: 10px;
+    right: 10px;
+    z-index: 11;
+  }
+  #infoPanel {
+    display: none;
+    position: absolute;
+    top: 48px;
+    left: 10px;
+    background-color: rgba(0,0,0,0.8);
+    color: white;
+    padding: 16px;
+    border-radius: 4px;
+    max-width: 320px;
+    max-height: 80%;
+    overflow-y: auto;
+    font-size: 0.8em;
+  }
+  .color-box {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border: 1px solid white;
+  }
+  #periodicTable {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 33vw;
+    background-color: rgba(0,0,0,0.5);
+    border-radius: 4px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(18, 1fr);
+    gap: 2px;
+    transition: transform 0.3s ease;
+    user-select: none;
+  }
+  #periodicTable.hidden {
+    transform: translate(-50%, 100%);
+  }
+  .element {
+    aspect-ratio: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.7vw;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background-color 0.2s;
+    position: relative;
+  }
+  .element:hover {
+    filter: brightness(1.2);
+  }
+  .empty {
+    visibility: hidden;
+  }
+  .element-info {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0,0,0,0.8);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    width: 300px;
+    font-size: 1.6em;
+    z-index: 100;
+  }
+  .element:hover .element-info {
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="particleCanvas"></canvas>
+<div id="controls">
+  <div class="slider-container">
+    <label for="speedSlider">Sim Speed:</label>
+    <button class="slider-button" id="speedMinus">-</button>
+    <input type="range" id="speedSlider" min="1" max="100" value="10">
+    <button class="slider-button" id="speedPlus">+</button>
+    <span id="speedValue">10%</span>
+  </div>
+  <div class="slider-container">
+    <label for="sizeSlider">Particle Size:</label>
+    <button class="slider-button" id="sizeMinus">-</button>
+    <input type="range" id="sizeSlider" min="1" max="20" value="6">
+    <button class="slider-button" id="sizePlus">+</button>
+    <span id="sizeValue">6</span>
+  </div>
+  <div class="slider-container">
+    <label for="countSlider">Particle Count:</label>
+    <button class="slider-button" id="countMinus">-</button>
+    <input type="range" id="countSlider" min="10" max="1000" value="100">
+    <button class="slider-button" id="countPlus">+</button>
+    <span id="countValue">100</span>
+  </div>
+</div>
+<button id="fullscreenBtn">Fullscreen</button>
+<button id="infoBtn">Show Particle Info</button>
+<button id="toggleControlsBtn">Hide Controls</button>
+<div id="infoPanel"></div>
+<div id="periodicTable"></div>
+
+<script>
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
+const speedSlider = document.getElementById('speedSlider');
+const speedValue = document.getElementById('speedValue');
+const sizeSlider = document.getElementById('sizeSlider');
+const sizeValue = document.getElementById('sizeValue');
+const countSlider = document.getElementById('countSlider');
+const countValue = document.getElementById('countValue');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const infoBtn = document.getElementById('infoBtn');
+const infoPanel = document.getElementById('infoPanel');
+const controls = document.getElementById('controls');
+const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+const periodicTable = document.getElementById('periodicTable');
+
+const speedMinus = document.getElementById('speedMinus');
+const speedPlus = document.getElementById('speedPlus');
+const sizeMinus = document.getElementById('sizeMinus');
+const sizePlus = document.getElementById('sizePlus');
+const countMinus = document.getElementById('countMinus');
+const countPlus = document.getElementById('countPlus');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let simulationSpeed = 0.1;
+let particleSize = 6;
+let particleCount = 100;
+
+const periodicGroups = {
+  1: ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'DOT', 'DOGE'],
+  2: ['LTC', 'LINK', 'MATIC', 'UNI', 'AAVE', 'SUSHI'],
+  3: ['XRP', 'XLM', 'ATOM', 'EGLD'],
+  4: ['FTM', 'AVAX', 'NEAR', 'EWT'],
+  5: ['FIL', 'ICP', 'FLOW', 'HNT'],
+  6: ['AXS', 'SAND', 'MANA', 'ENJ'],
+  7: ['LUNA', 'FTT', 'GRT', 'RUNE'],
+  8: ['VET', 'CHZ', 'GALA'],
+  9: ['QNT', 'OCEAN', 'BAL'],
+  10: ['BAT', 'ZRX', 'NMR'],
+  11: ['MKR', 'DAI', 'USDC'],
+  12: ['USDT', 'BUSD', 'TUSD'],
+  13: ['SHIB', 'BABYDOGE', 'SAFEMOON'],
+  14: ['ZIL', 'HOT', 'COTI'],
+  15: ['ONE', 'CELO', 'KAVA'],
+  16: ['COMP', 'CRV', 'YFI'],
+  17: ['REN', 'ANKR', 'STORJ'],
+  18: ['UMA', '1INCH', 'BNT'],
+  Lanthanoids: ['REN', 'BAND', 'OCEAN', 'RLC', 'NKN'],
+  Actinoids: ['LRC', 'KNC', 'REQ', 'QKC', 'REP']
+};
+
+const elementColors = {
+  1: '#FF5733', 2: '#DAF7A6', 3: '#6633FF', 4: '#FF6633',
+  5: '#33FF66', 6: '#FF3333', 7: '#3333FF', 8: '#3366FF',
+  9: '#33FFFF', 10: '#FFFF33', 11: '#FF3366', 12: '#33FF33',
+  13: '#FFC300', 14: '#FF5733', 15: '#C70039', 16: '#900C3F',
+  17: '#581845', 18: '#FF33FF',
+  Lanthanoids: '#FF9999', Actinoids: '#99FF99'
+};
+
+const elementBehaviors = {
+ 1: 'Pioneer Elements Members: BTC, ETH, BNB, XRP, ADA, SOL, DOT.',
+   'Characteristics: These cryptocurrencies lead the way in innovation and adoption, acting as the vanguard of the crypto market. They are highly reactive and easily attract investors, developers, and partners.'
+
+2: 'Solid Foundation Members: LTC, BCH, LINK, XLM, ATOM, VET.',
+   'Characteristics: Providing a solid and reliable foundation for the crypto ecosystem, these currencies offer stability and practicality. They attract partnerships with stablecoins and DeFi protocols, fostering a robust and diverse market.'
+
+3: 'Group 3: Diverse Catalysts Members: EOS, XMR, TRX, ZEC.',
+   'Characteristics: Embodying the diverse roles of catalysts, these cryptocurrencies facilitate transactions, enhance network efficiency, and spur innovation. They play a crucial role in driving the growth and evolution of the crypto space.'
+
+4: 'High Temperature Stabilizers Members: AVAX, ALGO, FTM, NEAR.',
+   'Characteristics: Capable of withstanding the heat of intense market activity, these cryptocurrencies offer stable and scalable infrastructure for large-scale applications and user bases.'
+
+5: 'Hard Guardian Members: AAVE, UNI, COMP, SUSHI.',
+   'Characteristics: Acting as guardians of the DeFi landscape, these cryptocurrencies offer secure and transparent financial solutions, safeguarding users' assets and fostering trust in the market.'
+
+6: 'High Oxidation State Explorers Members: MKR, SNX, YFI, RUNE.',
+   'Characteristics: Exploring the frontiers of financial innovation and cross-chain interoperability, these cryptocurrencies push the boundaries of what is possible in the crypto space.'
+
+7: 'Radioactive Potential Members: KSM, GRT, CRV, 1INCH.',
+   'Characteristics: Like radioactive elements, these cryptocurrencies possess untapped potential and may exhibit unexpected properties or growth spurts. They are mildly attracted to non-metal aspects of the crypto ecosystem, such as innovative use cases and partnerships.'
+
+8: 'Colorful Innovators Members: DOGE, SHIB, SAFEMOON.',
+   'Characteristics: Bringing a playful and colorful energy to the crypto market, these currencies often attract a loyal and engaged community, fostering a sense of fun and excitement around their projects.'
+
+9: 'Catalytic Innovators Members: MATIC, HNT, AR, GALA.',
+   'Characteristics: Acting as catalysts for innovation and growth, these cryptocurrencies enable new applications and use cases within the crypto ecosystem. They attract developers and entrepreneurs looking to build on their platforms.'
+
+10: 'Corrosion-Resistant Members: THETA, TFUEL, CHZ.',
+    'Characteristics: Resembling metals resistant to corrosion, these cryptocurrencies demonstrate resilience and durability in the face of market fluctuations. They attract investors seeking stable and reliable returns.'
+
+11: 'Conductive Pioneers Members: ENJ, MANA, SAND.',
+    'Characteristics: With good conductivity, these cryptocurrencies efficiently transmit value and information within the crypto ecosystem. They often play a pivotal role in emerging sectors such as gaming and virtual worlds.'
+
+12: 'Low-Melting Innovators Members: FIL, STORJ, SC.',
+    'Characteristics: Despite their low-melting point analogy, these cryptocurrencies exhibit flexibility and adaptability, quickly adjusting to new market trends and opportunities. They attract investors and developers interested in cutting-edge technologies and use cases.'
+
+13: 'Ionic Bond Formers Members: BAT, CVC, OXT.',
+    'Characteristics: Losing three electrons, these cryptocurrencies form strong ionic bonds with other elements in the crypto ecosystem. They attract partners focused on security, stability, and traditional financial institutions.'
+
+14: 'Versatile Elements Members: DAI, USDT, USDC, BUSD.',
+    'Characteristics: Capable of both losing and gaining electrons, these stablecoins demonstrate versatility and can adapt to various roles within the market. They attract a wide range of users, from retail investors to institutional players.'
+
+15: 'Covalent Bond Builders Members: RAY, SERUM, SRM, FTT.',
+    'Characteristics: Gaining three electrons and forming covalent bonds, these cryptocurrencies collaborate closely with foundational and catalytic elements, contributing to the overall cohesion and stability of the crypto ecosystem.'
+
+16: 'Highly Reactive Non-Metals Members: COTI, UOS, GTO.',
+    'Characteristics: As highly reactive non-metals, these cryptocurrencies attract significant attention and investment, forming strong partnerships with basic and industrial metals within the crypto market.'
+
+17: 'Halogen-Like Members: DENT, WIN, HOT.',
+    'Characteristics: Gaining one electron and exhibiting halogen-like reactivity, these cryptocurrencies are highly sought after by basic metals, driving demand and market activity within niche sectors of the crypto sphere.'
+
+18: 'Noble Gases Members: TWT, TOMO, KAVA.',
+    'Characteristics: Resembling noble gases in their stability and non-reactivity, these cryptocurrencies maintain their independence and unique properties. They repel attempts at direct integration into broader crypto ecosystems, preferring to operate within their own niche markets.'
+
+Lanthanoids: 'Rare Earth Crypto Members: REN, BAND, OCEAN, RLC, NKN.',
+    'Characteristics: With similar chemical properties akin to rare earth elements, these cryptocurrencies offer specialized functionalities and applications. They attract a niche group of investors and developers interested in their unique characteristics and potential use cases.'
+
+Actinoids: 'Radioactive Crypto Members: LRC, KNC, REQ, QKC, REP.',
+    'Characteristics: Like radioactive elements, these cryptocurrencies possess complex chemistries and may exhibit unpredictable behavior. They attract those seeking high-risk, high-reward opportunities within the dynamic and rapidly evolving crypto market.'
+};
+
+const elementDetails = {
+BTC: { name: 'Bitcoin' },
+ETH: { name: 'Ethereum' },
+BNB: { name: 'Binance Coin' },
+XRP: { name: 'Ripple' },
+ADA: { name: 'Cardano' },
+SOL: { name: 'Solana' },
+DOT: { name: 'Polkadot' },
+LTC: { name: 'Litecoin' },
+BCH: { name: 'Bitcoin Cash' },
+LINK: { name: 'Chainlink' },
+XLM: { name: 'Stellar' },
+ATOM: { name: 'Cosmos' },
+VET: { name: 'VeChain' },
+EOS: { name: 'EOS' },
+XMR: { name: 'Monero' },
+TRX: { name: 'TRON' },
+ZEC: { name: 'Zcash' },
+AVAX: { name: 'Avalanche' },
+ALGO: { name: 'Algorand' },
+FTM: { name: 'Fantom' },
+NEAR: { name: 'NEAR Protocol' },
+AAVE: { name: 'Aave' },
+UNI: { name: 'Uniswap' },
+COMP: { name: 'Compound' },
+SUSHI: { name: 'SushiSwap' },
+MKR: { name: 'Maker' },
+SNX: { name: 'Synthetix' },
+YFI: { name: 'yearn.finance' },
+RUNE: { name: 'THORChain' },
+KSM: { name: 'Kusama' },
+GRT: { name: 'The Graph' },
+CRV: { name: 'Curve DAO Token' },
+1INCH: { name: '1inch Network' },
+DOGE: { name: 'Dogecoin' },
+SHIB: { name: 'Shiba Inu' },
+MATIC: { name: 'Polygon' },
+HNT: { name: 'Helium' },
+AR: { name: 'Arweave' },
+GALA: { name: 'Gala' },
+THETA: { name: 'Theta Network' },
+TFUEL: { name: 'Theta Fuel' },
+CHZ: { name: 'Chiliz' },
+ENJ: { name: 'Enjin Coin' },
+MANA: { name: 'Decentraland' },
+SAND: { name: 'The Sandbox' },
+FIL: { name: 'Filecoin' },
+STORJ: { name: 'Storj' },
+SC: { name: 'Siacoin' },
+BAT: { name: 'Basic Attention Token' },
+CVC: { name: 'Civic' },
+OXT: { name: 'Orchid' },
+DAI: { name: 'Dai' },
+USDT: { name: 'Tether' },
+USDC: { name: 'USD Coin' },
+BUSD: { name: 'Binance USD' },
+RAY: { name: 'RAY' }, 
+SERUM: { name: 'SERUM' },
+SRM: { name: 'SRM' },
+FTT: { name: 'FTT' },
+COTI: { name: 'COTI' },
+UOS: { name: 'UOS' },
+GTO: { name: 'GTO' },
+DENT: { name: 'DENT' },
+WIN: { name: 'WIN' },
+HOT: { name: 'HOT' },
+TWT: { name: 'TWT' },
+TOMO: { name: 'TOMO' },
+KAVA: { name: 'KAVA' },
+REN: { name: 'REN' },
+BAND: { name: 'BAND' },
+OCEAN: { name: 'OCEAN' },
+RLC: { name: 'RLC' },
+NKN: { name: 'NKN' },
+LRC: { name: 'LRC' },
+KNC: { name: 'KNC' },
+REQ: { name: 'REQ' },
+QKC: { name: 'QKC' },
+REP: { name: 'REP' },
+};
+class Particle {
+  constructor(x, y, element, group) {
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.element = element;
+    this.group = group;
+    this.color = elementColors[group];
+    this.radius = particleSize;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    
+    let fontSize = Math.max(7, Math.min(this.radius * 1.2, 20));
+    ctx.font = `bold ${fontSize}px 'Helvetica Neue', Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    if (this.radius >= 7) {
+      ctx.fillStyle = 'black';
+    } else {
+      ctx.fillStyle = 'white';
+    }
+    
+    ctx.fillText(this.element, this.x, this.y);
+  }
+
+  update() {
+    this.x += this.vx * simulationSpeed;
+    this.y += this.vy * simulationSpeed;
+
+    this.x = (this.x + canvas.width) % canvas.width;
+    this.y = (this.y + canvas.height) % canvas.height;
+
+    this.vx *= 0.99;
+    this.vy *= 0.99;
+  }
+}
+
+const particles = [];
+
+function createParticles() {
+  particles.length = 0;
+  const allElements = Object.values(periodicGroups).flat();
+  for (let i = 0; i < particleCount; i++) {
+    const randomElement = allElements[Math.floor(Math.random() * allElements.length)];
+    const group = Object.keys(periodicGroups).find(key => periodicGroups[key].includes(randomElement));
+    let newParticle;
+    do {
+      newParticle = new Particle(
+        Math.random() * canvas.width,
+        Math.random() * canvas.height,
+        randomElement,
+        group
+      );
+    } while (checkOverlap(newParticle));
+    particles.push(newParticle);
+  }
+  updateParticleCountSlider();
+}
+
+function checkOverlap(particle) {
+  for (let otherParticle of particles) {
+    let dx = particle.x - otherParticle.x;
+    let dy = particle.y - otherParticle.y;
+    
+    if (Math.abs(dx) > canvas.width / 2) {
+      dx = dx > 0 ? dx - canvas.width : dx + canvas.width;
+    }
+    if (Math.abs(dy) > canvas.height / 2) {
+      dy = dy > 0 ? dy - canvas.height : dy + canvas.height;
+    }
+    
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < particle.radius + otherParticle.radius) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function interaction(p1, p2) {
+  let dx = p2.x - p1.x;
+  let dy = p2.y - p1.y;
+  
+  if (Math.abs(dx) > canvas.width / 2) {
+    dx = dx > 0 ? dx - canvas.width : dx + canvas.width;
+  }
+  if (Math.abs(dy) > canvas.height / 2) {
+    dy = dy > 0 ? dy - canvas.height : dy + canvas.height;
+  }
+  
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  if (distance > p1.radius + p2.radius && distance < 120) {
+    const force = getForce(p1.group, p2.group) / distance;
+    p1.vx += dx * force * simulationSpeed;
+    p1.vy += dy * force * simulationSpeed;
+  }
+}
+
+function getForce(group1, group2) {
+  if (group1 === 'Lanthanoids' || group1 === 'Actinoids' || group2 === 'Lanthanoids' || group2 === 'Actinoids') {
+    return 0.03; // Mild attraction for lanthanoids and actinoids
+  }
+  
+  const groupDiff = Math.abs(parseInt(group1) - parseInt(group2));
+  if (group1 === '18' || group2 === '18') return -0.1; // Noble gases repel strongly
+  if (groupDiff === 0) return -0.05; // Repel same group
+  if ((group1 === '1' && group2 === '17') || (group1 === '17' && group2 === '1')) return 0.1; // Strong attraction
+  if (groupDiff <= 2) return 0.05; // Attract nearby groups
+  return -0.02; // Weakly repel distant groups
+}
+
+function resolveCollisions() {
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      let p1 = particles[i];
+      let p2 = particles[j];
+      
+      let dx = p2.x - p1.x;
+      let dy = p2.y - p1.y;
+      
+      if (Math.abs(dx) > canvas.width / 2) {
+        dx = dx > 0 ? dx - canvas.width : dx + canvas.width;
+      }
+      if (Math.abs(dy) > canvas.height / 2) {
+        dy = dy > 0 ? dy - canvas.height : dy + canvas.height;
+      }
+      
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const minDistance = p1.radius + p2.radius;
+      
+      if (distance < minDistance) {
+        const angle = Math.atan2(dy, dx);
+        const overlap = minDistance - distance;
+        
+        p1.x -= overlap * Math.cos(angle) / 2;
+        p1.y -= overlap * Math.sin(angle) / 2;
+        p2.x += overlap * Math.cos(angle) / 2;
+        p2.y += overlap * Math.sin(angle) / 2;
+        
+        const v1 = Math.sqrt(p1.vx * p1.vx + p1.vy * p1.vy);
+        const v2 = Math.sqrt(p2.vx * p2.vx + p2.vy * p2.vy);
+        
+        const dir1 = Math.atan2(p1.vy, p1.vx);
+        const dir2 = Math.atan2(p2.vy, p2.vx);
+        
+        p1.vx = v2 * Math.cos(dir2 - angle) * Math.cos(angle) + v1 * Math.sin(dir1 - angle) * Math.cos(angle + Math.PI/2);
+        p1.vy = v2 * Math.cos(dir2 - angle) * Math.sin(angle) + v1 * Math.sin(dir1 - angle) * Math.sin(angle + Math.PI/2);
+        p2.vx = v1 * Math.cos(dir1 - angle) * Math.cos(angle) + v2 * Math.sin(dir2 - angle) * Math.cos(angle + Math.PI/2);
+        p2.vy = v1 * Math.cos(dir1 - angle) * Math.sin(angle) + v2 * Math.sin(dir2 - angle) * Math.sin(angle + Math.PI/2);
+      }
+    }
+  }
+}
+
+function updateParticles() {
+  for (let i = 0; i < particles.length; i++) {
+    const p1 = particles[i];
+    
+    for (let j = 0; j < particles.length; j++) {
+      if (i !== j) {
+        const p2 = particles[j];
+        interaction(p1, p2);
+      }
+    }
+    
+    p1.update();
+  }
+  
+  resolveCollisions();
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  updateParticles();
+  
+  for (let particle of particles) {
+    particle.draw();
+  }
+  
+  updateParticleCountSlider();
+  
+  requestAnimationFrame(animate);
+}
+
+function createPeriodicTable() {
+  const table = [
+    ['BTC', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'DOGE'],
+    ['ETH', 'LTC', '', '', '', '', '', '', '', '', '', '', 'BAT', 'DAI', 'RAY', 'COTI', 'DENT', 'TWT'],
+    ['BNB', 'BCH', '', '', '', '', '', '', '', '', '', '', 'CVC', 'USDT', 'SERUM', 'UOS', 'WIN', 'TOMO'],
+    ['XRP', 'LINK', 'EOS', 'AVAX', 'AAVE', 'MKR', 'KSM', 'MATIC', 'THETA', 'ENJ', 'FIL', 'STORJ', 'OXT', 'USDC', 'SRM', 'GTO', 'HOT', 'KAVA'],
+    ['ADA', 'XLM', 'XMR', 'ALGO', 'UNI', 'SNX', 'GRT', 'HNT', 'TFUEL', 'MANA', 'SC', 'CVC', 'OXT', 'BUSD', 'FTT', 'GTO', 'HOT', 'KAVA'],
+    ['SOL', 'ATOM', 'TRX', 'FTM', 'COMP', 'YFI', 'CRV', 'AR', 'CHZ', 'SAND', 'SC', 'OXT', 'BUSD', 'SRM', 'GTO', 'HOT', 'KAVA'],
+    ['DOT', 'VET', 'ZEC', 'NEAR', 'SUSHI', 'RUNE', '1INCH', '', '', '', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ['', '', 'REN', 'BAND', 'OCEAN', 'RLC', 'NKN', 'GALA', 'CHZ', 'SAND', 'SC', 'OXT', 'BUSD', 'SRM', 'GTO', 'HOT', 'KAVA', ''],
+    ['', '', 'LRC', 'KNC', 'REQ', 'QKC', 'REP', 'GALA', 'CHZ', 'SAND', 'SC', 'OXT', 'BUSD', 'SRM', 'GTO', 'HOT', 'KAVA', '']
+];
+
+  table.forEach((row, i) => {
+    row.forEach((element, j) => {
+      const elementDiv = document.createElement('div');
+      elementDiv.textContent = element;
+      elementDiv.className = element ? 'element' : 'empty';
+      if (element) {
+        const group = Object.keys(periodicGroups).find(key => periodicGroups[key].includes(element));
+        elementDiv.style.backgroundColor = elementColors[group];
+        elementDiv.addEventListener('click', (e) => spawnAtoms(element, group, e));
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'element-info';
+        const details = elementDetails[element] || { name: 'Unknown', atomicNumber: '?', atomicMass: '?', electronegativity: '?' };
+        infoDiv.innerHTML = `
+          <strong>${details.name}</strong><br>
+          Symbol: ${element}<br>
+          Group: ${group}<br>
+          Usage: Click to spawn 1 atom<br>
+          Shift+Click: 5 atoms<br>
+          Ctrl+Click: 10 atoms<br>
+          Alt+Click: 20 atoms
+        `;
+        elementDiv.appendChild(infoDiv);
+      }
+      periodicTable.appendChild(elementDiv);
+    });
+  });
+}
+
+function spawnAtoms(element, group, event) {
+  let count = 1;
+  if (event.shiftKey) count = 5;
+  else if (event.ctrlKey) count = 10;
+  else if (event.altKey) count = 20;
+
+  for (let i = 0; i < count; i++) {
+    let newParticle;
+    do {
+      newParticle = new Particle(
+        Math.random() * canvas.width,
+        Math.random() * canvas.height,
+        element,
+        group
+      );
+    } while (checkOverlap(newParticle));
+    particles.push(newParticle);
+  }
+  updateParticleCountSlider();
+}
+
+function updateParticleCountSlider() {
+  const currentCount = particles.length;
+  countSlider.value = currentCount;
+  countValue.textContent = currentCount;
+}
+
+createParticles();
+createPeriodicTable();
+animate();
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+speedSlider.addEventListener('input', (e) => {
+  simulationSpeed = e.target.value / 100;
+  speedValue.textContent = `${e.target.value}%`;
+});
+
+sizeSlider.addEventListener('input', (e) => {
+  particleSize = parseInt(e.target.value);
+  sizeValue.textContent = e.target.value;
+  particles.forEach(particle => {
+    particle.radius = particleSize;
+  });
+});
+
+countSlider.addEventListener('input', (e) => {
+  particleCount = parseInt(e.target.value);
+  countValue.textContent = e.target.value;
+  if (particleCount > particles.length) {
+    // Add particles
+    const toAdd = particleCount - particles.length;
+    for (let i = 0; i < toAdd; i++) {
+      const allElements = Object.values(periodicGroups).flat();
+      const randomElement = allElements[Math.floor(Math.random() * allElements.length)];
+      const group = Object.keys(periodicGroups).find(key => periodicGroups[key].includes(randomElement));
+      let newParticle;
+      do {
+        newParticle = new Particle(
+          Math.random() * canvas.width,
+          Math.random() * canvas.height,
+          randomElement,
+          group
+        );
+      } while (checkOverlap(newParticle));
+      particles.push(newParticle);
+    }
+  } else if (particleCount < particles.length) {
+    // Remove particles
+    particles.splice(particleCount);
+  }
+});
+
+fullscreenBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch((err) => {
+      console.log(`Error attempting to enable fullscreen: ${err.message}`);
+    });
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) {
+    fullscreenBtn.textContent = 'Exit Fullscreen';
+  } else {
+    fullscreenBtn.textContent = 'Fullscreen';
+  }
+  resizeCanvas();
+});
+
+infoBtn.addEventListener('click', () => {
+  if (infoPanel.style.display === 'none' || infoPanel.style.display === '') {
+    infoPanel.style.display = 'block';
+    let content = '<h3>Element Group Behaviors and Colors</h3>';
+    for (let group in elementBehaviors) {
+      content += `
+        <div>
+          <span class="color-box" style="background-color: ${elementColors[group]};"></span>
+          <strong>Group ${group}:</strong> ${elementBehaviors[group]}
+        </div><br>`;
+    }
+    content += '<h3>Interaction Rules</h3>';
+    content += `
+      <p>- Same group: Weak repulsion</p>
+      <p>- Adjacent groups: Weak attraction</p>
+      <p>- Group 1 and 17: Strong attraction</p>
+      <p>- Noble gases (Group 18): Strong repulsion to all</p>
+      <p>- Transition metals: Mild attraction to non-metals</p>
+      <p>- Lanthanoids and Actinoids: Mild attraction to all</p>
+      <p>- Distant groups: Very weak repulsion</p>`;
+    infoPanel.innerHTML = content;
+  } else {
+    infoPanel.style.display = 'none';
+  }
+});
+
+toggleControlsBtn.addEventListener('click', () => {
+  controls.classList.toggle('hidden');
+  periodicTable.classList.toggle('hidden');
+  toggleControlsBtn.textContent = controls.classList.contains('hidden') ? 'Show Controls' : 'Hide Controls';
+});
+
+canvas.addEventListener('mousemove', (event) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = event.clientX - rect.left;
+  const mouseY = event.clientY - rect.top;
+
+  for (let particle of particles) {
+    const dx = mouseX - particle.x;
+    const dy = mouseY - particle.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);if (distance < particle.radius) {
+      canvas.title = `Element: ${elementDetails[particle.element].name}, Group: ${particle.group}`;
+      return;
+    }
+  }
+  canvas.title = '';
+});
+
+canvas.addEventListener('click', (event) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = event.clientX - rect.left;
+  const mouseY = event.clientY - rect.top;
+
+  for (let particle of particles) {
+    const dx = mouseX - particle.x;
+    const dy = mouseY - particle.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < particle.radius) {
+      const details = elementDetails[particle.element];
+      alert(`Element: ${details.name}
+Symbol: ${particle.element}
+Atomic Number: ${details.atomicNumber}
+Atomic Mass: ${details.atomicMass}
+Electronegativity: ${details.electronegativity || 'N/A'}
+Group: ${particle.group}`);
+      return;
+    }
+  }
+});
+
+speedMinus.addEventListener('click', () => {
+  speedSlider.value = Math.max(1, parseInt(speedSlider.value) - 1);
+  simulationSpeed = speedSlider.value / 100;
+  speedValue.textContent = `${speedSlider.value}%`;
+});
+
+speedPlus.addEventListener('click', () => {
+  speedSlider.value = Math.min(100, parseInt(speedSlider.value) + 1);
+  simulationSpeed = speedSlider.value / 100;
+  speedValue.textContent = `${speedSlider.value}%`;
+});
+
+sizeMinus.addEventListener('click', () => {
+  sizeSlider.value = Math.max(1, parseInt(sizeSlider.value) - 1);
+  particleSize = parseInt(sizeSlider.value);
+  sizeValue.textContent = sizeSlider.value;
+  particles.forEach(particle => {
+    particle.radius = particleSize;
+  });
+});
+
+sizePlus.addEventListener('click', () => {
+  sizeSlider.value = Math.min(20, parseInt(sizeSlider.value) + 1);
+  particleSize = parseInt(sizeSlider.value);
+  sizeValue.textContent = sizeSlider.value;
+  particles.forEach(particle => {
+    particle.radius = particleSize;
+  });
+});
+
+countMinus.addEventListener('click', () => {
+  countSlider.value = Math.max(10, parseInt(countSlider.value) - 1);
+  particleCount = parseInt(countSlider.value);
+  countValue.textContent = countSlider.value;
+  if (particleCount < particles.length) {
+    particles.pop();
+  }
+  updateParticleCountSlider();
+});
+
+countPlus.addEventListener('click', () => {
+  countSlider.value = Math.min(1000, parseInt(countSlider.value) + 1);
+  particleCount = parseInt(countSlider.value);
+  countValue.textContent = countSlider.value;
+  if (particleCount > particles.length) {
+    const allElements = Object.values(periodicGroups).flat();
+    const randomElement = allElements[Math.floor(Math.random() * allElements.length)];
+    const group = Object.keys(periodicGroups).find(key => periodicGroups[key].includes(randomElement));
+    let newParticle;
+    do {
+      newParticle = new Particle(
+        Math.random() * canvas.width,
+        Math.random() * canvas.height,
+        randomElement,
+        group
+      );
+    } while (checkOverlap(newParticle));
+    particles.push(newParticle);
+  }
+  updateParticleCountSlider();
+});
+
+</script>
+</body></html>
